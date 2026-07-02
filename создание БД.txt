@@ -1,0 +1,145 @@
+-- =============================================
+-- БАЗА ДАННЫХ: АВТОСЕРВИС (СТО)
+-- Версия: 1.0
+-- Описание: Учет клиентов, автомобилей, заказов и услуг
+-- =============================================
+
+-- Создание базы данных
+DROP DATABASE IF EXISTS autoservice;
+CREATE DATABASE autoservice CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE autoservice;
+
+-- =============================================
+-- ТАБЛИЦА 1: Клиенты
+-- =============================================
+CREATE TABLE клиенты (
+    id_клиента INT PRIMARY KEY AUTO_INCREMENT,
+    фамилия VARCHAR(50) NOT NULL,
+    имя VARCHAR(50) NOT NULL,
+    отчество VARCHAR(50),
+    телефон VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    адрес TEXT,
+    дата_регистрации DATE DEFAULT (CURRENT_DATE),
+    комментарий TEXT
+) COMMENT 'Таблица клиентов автосервиса';
+
+-- =============================================
+-- ТАБЛИЦА 2: Автомобили
+-- =============================================
+CREATE TABLE автомобили (
+    id_автомобиля INT PRIMARY KEY AUTO_INCREMENT,
+    id_клиента INT NOT NULL,
+    марка VARCHAR(50) NOT NULL,
+    модель VARCHAR(50) NOT NULL,
+    гос_номер VARCHAR(15) UNIQUE,
+    vin VARCHAR(50) UNIQUE,
+    год_выпуска YEAR,
+    пробег INT,
+    комментарий TEXT,
+    FOREIGN KEY (id_клиента) REFERENCES клиенты(id_клиента) 
+        ON DELETE CASCADE ON UPDATE CASCADE
+) COMMENT 'Таблица автомобилей клиентов';
+
+-- =============================================
+-- ТАБЛИЦА 3: Сотрудники
+-- =============================================
+CREATE TABLE сотрудники (
+    id_сотрудника INT PRIMARY KEY AUTO_INCREMENT,
+    фамилия VARCHAR(50) NOT NULL,
+    имя VARCHAR(50) NOT NULL,
+    отчество VARCHAR(50),
+    должность VARCHAR(100) NOT NULL,
+    телефон VARCHAR(20) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    дата_найма DATE NOT NULL,
+    ставка_час DECIMAL(10,2) NOT NULL,
+    комментарий TEXT
+) COMMENT 'Таблица сотрудников автосервиса';
+
+-- =============================================
+-- ТАБЛИЦА 4: Услуги (прайс-лист)
+-- =============================================
+CREATE TABLE услуги (
+    id_услуги INT PRIMARY KEY AUTO_INCREMENT,
+    название VARCHAR(200) NOT NULL,
+    описание TEXT,
+    стоимость DECIMAL(10,2) NOT NULL,
+    время_выполнения_мин INT COMMENT 'Время в минутах',
+    категория VARCHAR(100),
+    активна BOOLEAN DEFAULT TRUE
+) COMMENT 'Прайс-лист услуг автосервиса';
+
+-- =============================================
+-- ТАБЛИЦА 5: Запчасти (склад)
+-- =============================================
+CREATE TABLE запчасти (
+    id_запчасти INT PRIMARY KEY AUTO_INCREMENT,
+    название VARCHAR(200) NOT NULL,
+    артикул VARCHAR(50) UNIQUE,
+    производитель VARCHAR(100),
+    цена_закупки DECIMAL(10,2),
+    цена_продажи DECIMAL(10,2) NOT NULL,
+    количество_на_складе INT DEFAULT 0,
+    мин_количество INT DEFAULT 5,
+    местоположение VARCHAR(50),
+    категория VARCHAR(100)
+) COMMENT 'Склад запчастей';
+
+-- =============================================
+-- ТАБЛИЦА 6: Заказы (главная таблица)
+-- =============================================
+CREATE TABLE заказы (
+    id_заказа INT PRIMARY KEY AUTO_INCREMENT,
+    id_автомобиля INT NOT NULL,
+    id_сотрудника INT NOT NULL,
+    дата_создания DATETIME DEFAULT CURRENT_TIMESTAMP,
+    дата_выполнения DATE,
+    статус ENUM('новый', 'в работе', 'ожидание запчастей', 'выполнен', 'отменен') 
+        DEFAULT 'новый',
+    проблема_описание TEXT NOT NULL,
+    результат_работы TEXT,
+    сумма_услуг DECIMAL(10,2) DEFAULT 0,
+    сумма_запчастей DECIMAL(10,2) DEFAULT 0,
+    итоговая_сумма DECIMAL(10,2) DEFAULT 0,
+    комментарий TEXT,
+    FOREIGN KEY (id_автомобиля) REFERENCES автомобили(id_автомобиля)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (id_сотрудника) REFERENCES сотрудники(id_сотрудника)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT 'Заказы на ремонт и обслуживание';
+
+-- =============================================
+-- ТАБЛИЦА 7: Услуги в заказе (связующая таблица)
+-- =============================================
+CREATE TABLE услуги_заказа (
+    id_услуги_заказа INT PRIMARY KEY AUTO_INCREMENT,
+    id_заказа INT NOT NULL,
+    id_услуги INT NOT NULL,
+    id_сотрудника INT NOT NULL,
+    количество INT DEFAULT 1,
+    цена_фиксированная DECIMAL(10,2),
+    комментарий TEXT,
+    FOREIGN KEY (id_заказа) REFERENCES заказы(id_заказа)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_услуги) REFERENCES услуги(id_услуги)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    FOREIGN KEY (id_сотрудника) REFERENCES сотрудники(id_сотрудника)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT 'Выполненные услуги в заказе';
+
+-- =============================================
+-- ТАБЛИЦА 8: Запчасти в заказе (связующая таблица)
+-- =============================================
+CREATE TABLE запчасти_заказа (
+    id_запчасти_заказа INT PRIMARY KEY AUTO_INCREMENT,
+    id_заказа INT NOT NULL,
+    id_запчасти INT NOT NULL,
+    количество INT NOT NULL DEFAULT 1,
+    цена_фиксированная DECIMAL(10,2),
+    комментарий TEXT,
+    FOREIGN KEY (id_заказа) REFERENCES заказы(id_заказа)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (id_запчасти) REFERENCES запчасти(id_запчасти)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+) COMMENT 'Использованные запчасти в заказе';
